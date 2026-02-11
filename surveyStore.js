@@ -1,0 +1,123 @@
+// In-memory survey storage
+// Structure designed to be easily swappable with a database later
+
+const surveys = {
+  'event-feedback-1': {
+    surveyId: 'event-feedback-1',
+    title: 'Event Feedback Form',
+    questions: [
+      'What is your overall impression of the event?',
+      'What did you like the most?',
+      'What could be improved?',
+      'Was the content relevant to you? Why or why not?',
+      'How did you find the speakers/facilitators?',
+      'Did the timing and duration work for you?',
+      'What did you learn that you didn\'t know before?',
+      'How likely are you to attend another event like this?',
+      'Any feedback about the venue/online setup?',
+      'Any other comments or suggestions?'
+    ],
+    responses: []
+  }
+};
+
+/**
+ * Get survey by ID (without responses)
+ * @param {string} surveyId
+ * @returns {object|null} Survey object or null if not found
+ */
+function getSurvey(surveyId) {
+  const survey = surveys[surveyId];
+  if (!survey) {
+    return null;
+  }
+
+  return {
+    surveyId: survey.surveyId,
+    title: survey.title,
+    questions: survey.questions
+  };
+}
+
+/**
+ * Add a response to a survey
+ * @param {string} surveyId
+ * @param {object} responseData - { name, answers }
+ * @returns {object} Success status or error
+ */
+function addResponse(surveyId, responseData) {
+  const survey = surveys[surveyId];
+
+  if (!survey) {
+    return { success: false, error: 'Survey not found' };
+  }
+
+  const { name, answers } = responseData;
+
+  // Validate name
+  if (typeof name !== 'string' || name.trim() === '') {
+    return { success: false, error: 'Name must be a non-empty string' };
+  }
+
+  // Validate answers is an array
+  if (!Array.isArray(answers)) {
+    return { success: false, error: 'Answers must be an array' };
+  }
+
+  // Validate answers length matches questions
+  if (answers.length !== survey.questions.length) {
+    return {
+      success: false,
+      error: `Expected ${survey.questions.length} answers, got ${answers.length}`
+    };
+  }
+
+  // Validate each answer is a string
+  for (let i = 0; i < answers.length; i++) {
+    if (typeof answers[i] !== 'string') {
+      return {
+        success: false,
+        error: `Answer at index ${i} must be a string`
+      };
+    }
+  }
+
+  // Create response object
+  const response = {
+    name: name.trim(),
+    answers: answers,
+    submittedAt: new Date().toISOString()
+  };
+
+  // Add response to survey
+  survey.responses.push(response);
+
+  return { success: true, response };
+}
+
+/**
+ * Get survey responses (admin only)
+ * @param {string} surveyId
+ * @returns {object|null} Survey with all responses or null if not found
+ */
+function getSurveyResponses(surveyId) {
+  const survey = surveys[surveyId];
+
+  if (!survey) {
+    return null;
+  }
+
+  return {
+    surveyId: survey.surveyId,
+    title: survey.title,
+    questions: survey.questions,
+    responses: survey.responses,
+    totalResponses: survey.responses.length
+  };
+}
+
+module.exports = {
+  getSurvey,
+  addResponse,
+  getSurveyResponses
+};

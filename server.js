@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const pollStore = require('./pollStore');
+const surveyStore = require('./surveyStore');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -63,6 +64,61 @@ app.get('/api/polls/:pollId/results', (req, res) => {
 
   if (!results) {
     return res.status(404).json({ error: 'Poll not found' });
+  }
+
+  res.json(results);
+});
+
+// ===== SURVEY ENDPOINTS =====
+
+// GET /api/surveys/:surveyId
+// Returns survey title and questions (no responses)
+app.get('/api/surveys/:surveyId', (req, res) => {
+  const { surveyId } = req.params;
+  const survey = surveyStore.getSurvey(surveyId);
+
+  if (!survey) {
+    return res.status(404).json({ error: 'Survey not found' });
+  }
+
+  res.json(survey);
+});
+
+// POST /api/surveys/:surveyId/responses
+// Submit a response to a survey
+app.post('/api/surveys/:surveyId/responses', (req, res) => {
+  const { surveyId } = req.params;
+  const { name, answers } = req.body;
+
+  // Basic validation
+  if (!name || !answers) {
+    return res.status(400).json({ error: 'name and answers are required' });
+  }
+
+  const result = surveyStore.addResponse(surveyId, { name, answers });
+
+  if (!result.success) {
+    const statusCode = result.error === 'Survey not found' ? 404 : 400;
+    return res.status(statusCode).json({ error: result.error });
+  }
+
+  res.json({ success: true });
+});
+
+// GET /api/surveys/:surveyId/responses
+// Admin endpoint: returns survey responses
+app.get('/api/surveys/:surveyId/responses', (req, res) => {
+  const adminToken = req.headers['x-admin-token'];
+
+  if (!ADMIN_TOKEN || adminToken !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { surveyId } = req.params;
+  const results = surveyStore.getSurveyResponses(surveyId);
+
+  if (!results) {
+    return res.status(404).json({ error: 'Survey not found' });
   }
 
   res.json(results);
