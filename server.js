@@ -106,14 +106,8 @@ app.post('/api/surveys/:surveyId/responses', (req, res) => {
 });
 
 // GET /api/surveys/:surveyId/responses
-// Admin endpoint: returns survey responses
+// Public endpoint: returns survey responses
 app.get('/api/surveys/:surveyId/responses', (req, res) => {
-  const adminToken = req.headers['x-admin-token'];
-
-  if (!ADMIN_TOKEN || adminToken !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
   const { surveyId } = req.params;
   const results = surveyStore.getSurveyResponses(surveyId);
 
