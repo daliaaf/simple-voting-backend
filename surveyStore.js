@@ -50,7 +50,8 @@ function getSurvey(surveyId) {
 }
 
 /**
- * Add a response to a survey
+ * Add or update a response to a survey (UPSERT behavior)
+ * Supports progressive submissions - allows partial answers
  * @param {string} surveyId
  * @param {object} responseData - { name, answers }
  * @returns {object} Success status or error
@@ -74,11 +75,16 @@ function addResponse(surveyId, responseData) {
     return { success: false, error: 'Answers must be an array' };
   }
 
-  // Validate answers length matches questions
-  if (answers.length !== survey.questions.length) {
+  // Validate answers is not empty
+  if (answers.length === 0) {
+    return { success: false, error: 'Answers array cannot be empty' };
+  }
+
+  // Validate answers length does not exceed questions
+  if (answers.length > survey.questions.length) {
     return {
       success: false,
-      error: `Expected ${survey.questions.length} answers, got ${answers.length}`
+      error: `Too many answers: expected at most ${survey.questions.length}, got ${answers.length}`
     };
   }
 
@@ -92,17 +98,44 @@ function addResponse(surveyId, responseData) {
     }
   }
 
-  // Create response object
-  const response = {
-    name: name.trim(),
-    answers: answers,
-    submittedAt: new Date().toISOString()
-  };
+  // Normalize answers to full length array (fill missing with "")
+  const normalizedAnswers = [];
+  for (let i = 0; i < survey.questions.length; i++) {
+    normalizedAnswers[i] = i < answers.length ? answers[i] : '';
+  }
 
-  // Add response to survey
-  survey.responses.push(response);
+  const trimmedName = name.trim();
 
-  return { success: true, response };
+  // Look for existing response with the same name
+  const existingIndex = survey.responses.findIndex(r => r.name === trimmedName);
+
+  if (existingIndex !== -1) {
+    // Update existing response
+    const existingResponse = survey.responses[existingIndex];
+
+    // Merge answers: only overwrite with non-empty strings
+    for (let i = 0; i < normalizedAnswers.length; i++) {
+      if (normalizedAnswers[i] !== '') {
+        existingResponse.answers[i] = normalizedAnswers[i];
+      }
+    }
+
+    existingResponse.lastUpdatedAt = new Date().toISOString();
+
+    return { success: true, response: existingResponse };
+  } else {
+    // Create new response
+    const response = {
+      name: trimmedName,
+      answers: normalizedAnswers,
+      submittedAt: new Date().toISOString(),
+      lastUpdatedAt: new Date().toISOString()
+    };
+
+    survey.responses.push(response);
+
+    return { success: true, response };
+  }
 }
 
 /**
